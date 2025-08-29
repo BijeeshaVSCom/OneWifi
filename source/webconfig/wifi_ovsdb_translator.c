@@ -2752,6 +2752,13 @@ webconfig_error_t translate_vap_info_to_vif_state_common(const wifi_vap_info_t *
         vap_row->wps_exists=false;
     }
 
+    if (vap->u.bss_info.wpsPushButton) {
+        vap_row->wps_pbc = vap->u.bss_info.wpsPushButton;
+        vap_row->wps_pbc_exists = true;
+    } else {
+        vap_row->wps_pbc_exists = false;
+    }
+
     if (strlen(vap->u.bss_info.wps.pin) != 0) {
         strncpy(vap_row->wps_pbc_key_id, vap->u.bss_info.wps.pin, sizeof(vap_row->wps_pbc_key_id));
         vap_row->wps_pbc_key_id_exists = true;
