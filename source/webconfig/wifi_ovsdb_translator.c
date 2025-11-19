@@ -5326,9 +5326,34 @@ webconfig_error_t translate_radio_object_from_ovsdb(const struct schema_Wifi_Rad
     }
     oper_param->channelWidth = ht_mode_enum;
 
-    if (channel_mode_conversion(&oper_param->autoChannelEnabled, (char *)row->channel_mode, sizeof(row->channel_mode), STRING_TO_ENUM) != RETURN_OK) {
-        wifi_util_error_print(WIFI_WEBCONFIG,"%s:%d: channel mode conversion failed. channel_mode '%s'\n", __func__, __LINE__, row->channel_mode);
-        return webconfig_error_translate_from_ovsdb;
+    wifi_util_dbg_print(WIFI_WEBCONFIG, "%s:%d: Channel_mode is '%s' ll\n", __func__, __LINE__, row->channel_mode);
+    if (strspn(row->channel_mode, " \t\n\r") == strlen(row->channel_mode)) {
+        wifi_util_dbg_print(WIFI_WEBCONFIG,
+            "%s:%d: Channel_mode is empty, current wifi config: "
+            "autoChannelEnabled=%d\n",
+            __func__, __LINE__, oper_param->autoChannelEnabled);
+        unsigned int radio_index = convert_cloudifname_to_radio_index((char *)row->if_name, &radio_index);
+        wifi_radio_operationParam_t *existing_radio_param = getRadioOperationParam(radio_index);
+        if (existing_radio_param != NULL) {
+            oper_param->autoChannelEnabled = existing_radio_param->autoChannelEnabled;
+            wifi_util_dbg_print(WIFI_WEBCONFIG,
+                "%s:%d:channel_mode is empty, using existing config: "
+                "autoChannelEnabled=%d\n",
+                __func__, __LINE__, oper_param->autoChannelEnabled);
+        } else {
+            wifi_util_error_print(WIFI_WEBCONFIG,
+                "%s:%d:Failed to get existing radio param for radio_index %d\n", __func__,
+                __LINE__, radio_index);
+            return webconfig_error_translate_from_ovsdb;
+        }
+    } else {
+        if (channel_mode_conversion(&oper_param->autoChannelEnabled, (char *)row->channel_mode,
+                sizeof(row->channel_mode), STRING_TO_ENUM) != RETURN_OK) {
+            wifi_util_error_print(WIFI_WEBCONFIG,
+                "%s:%d:channel mode conversion failed. channel_mode '%s'\n", __func__,
+                __LINE__, row->channel_mode);
+            return webconfig_error_translate_from_ovsdb;
+        }
     }
 
     oper_param->enable = row->enabled;
