@@ -81,6 +81,7 @@ typedef enum {
 
 typedef enum {
     connection_state_disconnected_scan_list_none,
+    connection_state_connected_scan_list_none,
     connection_state_disconnected_scan_list_in_progress,
     connection_state_disconnected_scan_list_all,
     connection_state_disconnected_steady,
@@ -135,6 +136,7 @@ typedef struct {
     int                    ext_udhcp_disconnect_event_timeout_handler_id;
     int                    ext_trigger_disconnection_timeout_handler_id;
     bool                   is_started;
+    unsigned int scan_retry;
 }__attribute__((packed)) vap_svc_ext_t;
 
 typedef struct vap_svc {
