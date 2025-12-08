@@ -613,6 +613,8 @@ void ext_process_scan_list(vap_svc_t *svc)
             if (ext->scan_retry) {
                 ext_set_conn_state(ext, connection_state_connected_scan_list_none, __func__,
                     __LINE__);
+            } else if (is_connected_to_bssid(ext)) {
+                ext_set_conn_state(ext, connection_state_connected, __func__, __LINE__);
             } else {
                 ext_set_conn_state(ext, connection_state_disconnected_scan_list_none, __func__,
                     __LINE__);
@@ -1130,7 +1132,7 @@ static int process_ext_webconfig_set_data_sta_bssid(vap_svc_t *svc, void *arg)
         ext->ignored_radio_index = get_radio_index_for_vap_index(svc->prop,
             ext->connected_vap_index);
         ext->is_on_channel = true;
-        ext->scan_retry = 3;
+        ext->scan_retry = 6;
         ext_set_conn_state(ext, connection_state_connected_scan_list_none, __func__, __LINE__);
     }
 
