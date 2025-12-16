@@ -82,6 +82,7 @@ typedef enum {
 
 typedef enum {
     connection_state_disconnected_scan_list_none,
+    connection_state_connected_scan_list_none,
     connection_state_disconnected_scan_list_in_progress,
     connection_state_disconnected_scan_list_all,
     connection_state_disconnected_steady,
