@@ -289,7 +289,7 @@ int process_scan_result_timeout(vap_svc_t *svc)
 
     ext->ext_scan_result_timeout_handler_id = 0;
 
-    if (ext->conn_state == connection_state_connected_scan_list_none &&
+    if (ext->conn_state == connection_state_connected_scan_list_none && ext->scan_retry == 0 &&
         is_connected_to_bssid(ext)) {
         ext_set_conn_state(ext, connection_state_connected, __func__, __LINE__);
         schedule_connect_sm(svc);
@@ -621,16 +621,21 @@ void ext_start_scan(vap_svc_t *svc)
             wifi_util_info_print(WIFI_CTRL, "%s:%d ignore radio index %u\n", __func__, __LINE__,
                 radio_index);
             ext->scanned_radios++;
-            ext->is_radio_ignored = false;
-            ext->ignored_radio_index = 0;
             continue;
         }
 
-        if (ext->is_on_channel) {
+        radio_oper_param = get_wifidb_radio_map(radio_index);
+
+        if (ext->is_on_channel /*&&
+            ((radio_oper_param->band == WIFI_FREQUENCY_5L_BAND ||
+                 radio_oper_param->band == WIFI_FREQUENCY_5H_BAND ||
+                 radio_oper_param->band == WIFI_FREQUENCY_5_BAND) &&
+                (radio_oper_param->DfsEnabled &&
+                    !is_5g_20M_channel_in_dfs(radio_oper_param->channel)))*/) {
+            wifi_util_info_print(WIFI_CTRL, "%s:%d triggering on channel \n");
             mode = WIFI_RADIO_SCAN_MODE_ONCHAN;
         }
 
-        radio_oper_param = get_wifidb_radio_map(radio_index);
         if (get_allowed_channels(radio_oper_param->band, &mgr->hal_cap.wifi_prop.radiocap[radio_index],
                 channels_list, &num_channels,
                 radio_oper_param->DfsEnabled) != RETURN_OK) {
@@ -651,10 +656,16 @@ void ext_start_scan(vap_svc_t *svc)
 
         wifi_util_dbg_print(WIFI_CTRL, "%s:%d start Scan on radio index %u\n", __func__, __LINE__,
             radio_index);
+        ext->scan_retry--;
         wifi_hal_startScan(radio_index, mode, dwell_time, channels.num_channels,
             channels.channels_list);
     }
-    ext->is_on_channel = false;
+
+    if (ext->is_radio_ignored == true && !ext->scan_retry) {
+        ext->is_on_channel = false;
+        ext->is_radio_ignored = false;
+        ext->ignored_radio_index = 0;
+    }
     scheduler_add_timer_task(ctrl->sched, FALSE, &ext->ext_scan_result_timeout_handler_id,
                 process_scan_result_timeout, svc,
                 EXT_SCAN_RESULT_TIMEOUT, 1, FALSE);
@@ -671,8 +682,14 @@ void ext_process_scan_list(vap_svc_t *svc)
         // process scan list, arrange candidates according to policies
         if (ext->candidates_list.scan_count != 0) {
             ext_set_conn_state(ext, connection_state_connection_in_progress, __func__, __LINE__);
+            ext->scan_retry = 0;
+            ext->is_radio_ignored = false;
+            ext->is_on_channel = false;
         } else {
-            if (is_connected_to_bssid(ext)) {
+            if (ext->scan_retry) {
+                ext_set_conn_state(ext, connection_state_connected_scan_list_none, __func__,
+                    __LINE__);
+            } else if (is_connected_to_bssid(ext)) {
                 ext_set_conn_state(ext, connection_state_connected, __func__, __LINE__);
             } else {
                 ext_set_conn_state(ext, connection_state_disconnected_scan_list_none, __func__,
@@ -1215,6 +1232,7 @@ static int process_ext_webconfig_set_data_sta_bssid(vap_svc_t *svc, void *arg)
         ext->ignored_radio_index = get_radio_index_for_vap_index(svc->prop,
             ext->connected_vap_index);
         ext->is_on_channel = true;
+        ext->scan_retry = 3;
         ext_set_conn_state(ext, connection_state_connected_scan_list_none, __func__, __LINE__);
     }
 
